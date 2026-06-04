@@ -1,12 +1,13 @@
+import email
+import quopri
+import os
 from email.message import EmailMessage
+from email.policy import default
 
 def main():
-    res = ""
-    with open("/home/wee/K-Youth/week_1/data/AI & Workflow Automation Associate Job in Kuala Lumpur - Jobstreet.mhtml", "r") as file:
-        for content in file:
-            res = res + content
-    res.
-
+    curr_dir = os.getcwd()
+    subfolder = os.path.join(curr_dir, "data/0_source")
+    print(subfolder)
 
 if __name__ == "__main__":
     main()
