@@ -1,41 +1,56 @@
 import email
 import os
 import quopri
-from bs4 import BeautifulSoup
 from email import policy
 from email.message import EmailMessage
 
 def ingest_proccess(input_dir, output_dir):
-    success = 0
-    failed = 0
-    input_list = os.listdir(input_dir)
-
-    for f in input_list:
-        with open(f, "rb") as file:
+    try:
+        with open(input_dir, "rb") as file:
             msg = email.message_from_binary_file(file)
             for part in msg.walk():
-                if part.get_content_type == "text/html":
-                    outfile = f.replace(".mhtml", ".html")
-                    with open(outfile, "w", encoding="utf-8") as of:
+                if part.get_content_type() == "text/html":
+                    with open(output_dir, "w", encoding="utf-8") as of:
                         payload = part.get_payload(decode=True)
-                        of.write((quopri.decodestring(payload)).decode('utf-8'))
+                        of.write((quopri.decodestring(payload)).decode("utf-8", errors="ignore"))
+                        print(f"✅ Extracted {input_dir}")
                         return True
-                return False
+            print(f"⚠️ No HTML content found in: {input_dir}")
+            return False
+    except FileNotFoundError:
+        print(f"File: {input_dir} not found")
+        return False
 
 
 
-def inegst_all_mhtml(input_dir, output_dir):
+def ingest_all_mhtml(input_dir, output_dir):
+    failed = 0
+    passed = 0
     cwd = os.getcwd()
     FullInputDir = os.path.join(cwd, input_dir)
     FullOutputDir = os.path.join(cwd, output_dir)
+
+    InputDirList = os.listdir(FullInputDir)
+    if len(InputDirList) <= 0:
+        print(f"Empty dir: {FullInputDir}")
+        return False
 
     os.makedirs(FullOutputDir, exist_ok=True)
     if os.path.exists(input_dir):
         pass
     else:
         print(f"Invalid Directory: {input_dir}")
-    
 
+    for file in InputDirList:
+        FullInfileDir = os.path.join(FullInputDir, file)
+        FullOutfileDir = os.path.join(FullOutputDir, file)
+        outfile = FullOutfileDir.replace(".mhtml", ".html")
+        if ingest_proccess(FullInfileDir, outfile) != True:
+            failed += 1
+        else:
+            passed += 1
+    print("📊 Bronze Summary:")
+    print(f"Total: {passed + failed} | Extracted: {passed} | Failed: {failed}")
 
 
 
