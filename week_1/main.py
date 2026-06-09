@@ -1,9 +1,15 @@
 from pathlib import Path # Figure out why use Path?
 from src.ingestor import ingest_all_mhtml
 from src.processor import process_all_html
-import sys
 from src.loader import load_all_jsons
 from src.run_data_profile import run_data_profile
+import sys
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s |%(levelname)s |%(message)s"
+)
 
 SOURCE_DIR = Path("data/0_source")
 BRONZE_DIR = Path("data/1_bronze")
@@ -31,7 +37,11 @@ def run_bronze():
     ingest_all_mhtml(input_dir, output_dir)
     
 def main():
-    input = sys.argv[1]
+    try:
+        input = sys.argv[1]
+    except IndexError:
+        print("Invalid input")
+        return
     if input == "ingest":
         run_bronze()
     elif input == "process":
@@ -45,6 +55,8 @@ def main():
         run_silver()
         run_gold()
         run_profiler()
+    else:
+        print(f"Invalid option: {input}")
 
 if __name__ == "__main__":
     main()

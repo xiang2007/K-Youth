@@ -1,6 +1,31 @@
 from pathlib import Path
 import sqlite3
 import json
+import logging
+from hashlib import sha256
+
+def quality_check(data):
+    missing_field = 0
+    special_char_count = 0
+
+    missing_field = not ((data["description"] != "NULL") and (data["job_title"] != "NULL") and (data["company"] != "NULL"))
+    
+    desc = str(data["description"])
+    special_char_count = 0
+    for i in range(len(desc)):
+        if desc[i] in "!#":
+            special_char_count += 1
+
+    low_quality = (
+        len(desc) < 100
+        or missing_field
+        or special_char_count > 10
+    )
+    if low_quality:
+        return "LOW"
+    return "HIGH"
+
+
 
 def load_json_to_database(input_dir, output_dir):
     connection = sqlite3.connect(Path(output_dir) / "jobs.db")
@@ -11,29 +36,36 @@ def load_json_to_database(input_dir, output_dir):
         with open(input_dir, 'r') as file:
             data = json.load(file)
     except PermissionError:
-        print(f"Unable to openfile: {infile}")
+        logging.error(f"Unable to openfile: {infile}")
         return False
+
+    hash_input = f'{data["job_title"]}|{data["company"]}|{data["description"]}' # basic hashing
+    content_hash = sha256(hash_input.encode()).hexdigest()
+
+    quality = quality_check(data)
+
     cursor.execute(
-        "SELECT EXISTS(SELECT 1 FROM jobs WHERE source_id=?)", (data["source_id"],)
+        "SELECT 1 FROM jobs WHERE content_hash=? AND source_id=? LIMIT 1", (content_hash, data["source_id"])
         )
-    if cursor.fetchone()[0]:
-        print(f"⏭️ Skipped (duplicate): {infile}")
+    if cursor.fetchone():
+        logging.warning(f"⏭️ Skipped (duplicate): {infile}")
         connection.close()
         return False
     try:
         cursor.execute(
         """
-            INSERT INTO jobs (source_id, job_title, company, description)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO jobs (source_id, job_title, company, description, content_hash, quality)
+            VALUES (?, ?, ?, ?, ?, ?)
         """,
-            (data["source_id"], data["job_title"], data["company"], data["description"]),
+            (data["source_id"], data["job_title"], data["company"], data["description"], str(content_hash), quality)
         )
         connection.commit()
     except Exception as e:
         connection.rollback()
-        print(f"Error {e} occur at: {infile}")
+        logging.error(f"Error at: {str(infile)} Reason: {str(e)}")
         return False
-    print(f"✅ Inserted: {infile}")
+
+    logging.info(f"✅ Inserted: {infile}")
     connection.close()
     return True
 
@@ -41,7 +73,7 @@ def load_all_jsons(input_dir, output_dir):
     try:
         FullInfileList = [item for item in Path(input_dir).iterdir()]
     except FileNotFoundError:
-        print(f"Directory: {input_dir} not found")
+        logging.error(f"Directory not found: {input_dir}")
         return
 
     inserted = 0
@@ -54,11 +86,25 @@ def load_all_jsons(input_dir, output_dir):
     cursor.execute(
         """
             CREATE TABLE IF NOT EXISTS jobs(
-            source_id text NOT NULL,
-            job_title text NOT NULL,
-            company text NOT NULL,
-            description text NOT NULL,
-            );
+            source_id text PRIMARY KEY,
+            job_title text,
+            company text,
+            description text,
+            content_hash TEXT,
+            quality TEXT
+        );
+        """
+    )
+    cursor.execute(
+        """
+            CREATE TABLE IF NOT EXISTS jobs_quarantine(
+            source_id text PRIMARY KEY,
+            job_title text,
+            company text,
+            description text,
+            content_hash TEXT,
+            quality TEXT
+        );
         """
     )
     connection.commit()
@@ -67,6 +113,10 @@ def load_all_jsons(input_dir, output_dir):
             inserted += 1
         else:
             skipped += 1
+
+    cursor.execute("INSERT INTO jobs_quarantine SELECT * FROM jobs WHERE quality = 'LOW';")
+    cursor.execute("DELETE FROM jobs WHERE quality = 'LOW';")
+    connection.commit()
     connection.close()
     print("\n📊 Gold Summary:")
     print(f"Total: {inserted + skipped} | Inserted: {inserted} | Skipped: {skipped}\n")

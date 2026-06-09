@@ -1,4 +1,5 @@
 import email
+import logging
 from pathlib import Path
 
 def ingest_proccess(input_dir, output_dir):
@@ -11,33 +12,33 @@ def ingest_proccess(input_dir, output_dir):
                         payload = part.get_payload(decode=True)
                         if payload is not None:
                             of.write(payload.decode("utf-8", errors="ignore"))
-                        print(f"✅ Extracted: {Path(input_dir).name}")
+                        logging.info(f"✅ Extracted: {Path(input_dir).name}")
                         return True
-            print(f"⚠️ No HTML content found in: {input_dir}")
+            logging.error(f"⚠️ No HTML content found in: {input_dir}")
             return False
     except FileNotFoundError:
-        print(f"File: {input_dir} not found")
+        logging.error(f"File: {input_dir} not found")
         return False
 
 def ingest_all_mhtml(input_dir, output_dir):
     failed = 0
     passed = 0
-    FullInputDir = Path(input_dir).absolute()
-    FullOutputDir = Path(output_dir).absolute()
+    FullInputDir = Path(input_dir).resolve()
+    FullOutputDir = Path(output_dir).resolve()
 
     try:
         InputDirList = [item for item in Path(FullInputDir).iterdir() if item.is_file()]
     except FileNotFoundError:
-        print(f"Directory not found: {FullInputDir}")
+        logging.error(f"Directory not found: {input_dir}")
         return
     if len(InputDirList) <= 0:
-        print(f"Empty dir: {FullInputDir}")
+        logging.error(f"Empty dir: {input_dir}")
         return
 
     if Path(input_dir).is_dir:
         pass
     else:
-        print(f"Invalid Directory: {input_dir}")
+        logging.error(f"Invalid Directory: {input_dir}")
     Path(FullOutputDir).mkdir(exist_ok=True)
 
     print("🥉 Bronze")

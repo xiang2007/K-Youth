@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 from pydantic import BaseModel, Field, ValidationError
 from pathlib import Path
+import logging
 
 class JobListing(BaseModel):
     source_id : str = Field(min_length=1)
@@ -11,21 +12,23 @@ class JobListing(BaseModel):
 def process_all_html(input_dir, output_dir):
     success = 0
     failed = 0
-    FullInputDir = Path(input_dir).absolute()
-    FullOutputDir = Path(output_dir).absolute()
+    FullInputDir = Path(input_dir).resolve()
+    FullOutputDir = Path(output_dir).resolve()
 
     if not FullInputDir.is_dir():
-        print(f"Directory not found: {FullInputDir}")
-        return False
+        logging.error(f"Directory not found: {input_dir}")
+        return
+
     FullOutputDir.mkdir(exist_ok=True)
     input_dir_list = [list for list in FullInputDir.iterdir()]
     print("🥈 Silver")
+
     for file in input_dir_list:
         FullInfile = FullInputDir / file
         FullOutfile = FullOutputDir / str(file.name).replace(".html", "json")
         if process_html(FullInfile, FullOutfile):
             success += 1
-            print(f"✅ Extracted: {Path(file).name}")
+            logging.info(f"✅ Extracted: {Path(file).name}")
         else:
             failed += 1
     print("\n📊 Silver Summary:")
@@ -71,7 +74,7 @@ def process_html(input_dir, output_dir):
         )
     except ValidationError as e:
         for error in e.errors():
-            print(f"⚠️ Missing: {str(error['loc'][0])} in {input_dir.name}")
+            logging.warning(f"⚠️ Failed to process: {str(error['loc'][0])} | Reason: %s {input_dir.name}")
         return False
 
     with open(output_dir, 'w', encoding='utf-8') as outfile:
