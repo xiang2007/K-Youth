@@ -29,7 +29,7 @@ def process_all_html(input_dir, output_dir):
         else:
             failed += 1
     print("\n📊 Silver Summary:")
-    print(f"Total: {success + failed} | Processed: {success} | Skipped: {failed}")
+    print(f"Total: {success + failed} | Processed: {success} | Skipped: {failed}\n")
 
 
 def process_html(input_dir, output_dir):

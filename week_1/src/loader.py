@@ -58,7 +58,6 @@ def load_all_jsons(input_dir, output_dir):
             job_title text NOT NULL,
             company text NOT NULL,
             description text NOT NULL,
-            tech_stack text
             );
         """
     )

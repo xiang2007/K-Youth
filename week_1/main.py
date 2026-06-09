@@ -3,7 +3,7 @@ from src.ingestor import ingest_all_mhtml
 from src.processor import process_all_html
 import sys
 from src.loader import load_all_jsons
-# from src.run_data_profile import run_data_profile
+from src.run_data_profile import run_data_profile
 
 SOURCE_DIR = Path("data/0_source")
 BRONZE_DIR = Path("data/1_bronze")
@@ -11,9 +11,9 @@ SILVER_DIR = Path("data/2_silver")
 GOLD_DIR = Path("data/3_gold")
 DB_NAME = "jobs.db"
 
-# def run_profiler():
-#     db_path = GOLD_DIR/DB_NAME
-#     run_data_profile(db_path)
+def run_profiler():
+    db_path = GOLD_DIR/DB_NAME
+    run_data_profile(db_path)
 
 def run_gold():
     input_dir = SILVER_DIR
@@ -38,10 +38,13 @@ def main():
         run_silver()
     elif input == "load":
         run_gold()
+    elif input == "profile":
+        run_profiler()
     elif input == "all":
         run_bronze()
         run_silver()
         run_gold()
+        run_profiler()
 
 if __name__ == "__main__":
     main()
