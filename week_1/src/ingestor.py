@@ -1,5 +1,4 @@
 import email
-import quopri
 from pathlib import Path
 
 def ingest_proccess(input_dir, output_dir):
@@ -23,9 +22,8 @@ def ingest_proccess(input_dir, output_dir):
 def ingest_all_mhtml(input_dir, output_dir):
     failed = 0
     passed = 0
-    cwd = Path.cwd()
-    FullInputDir = cwd / input_dir
-    FullOutputDir = cwd / output_dir
+    FullInputDir = Path(input_dir).absolute()
+    FullOutputDir = Path(output_dir).absolute()
 
     try:
         InputDirList = [item for item in Path(FullInputDir).iterdir() if item.is_file()]
@@ -34,13 +32,13 @@ def ingest_all_mhtml(input_dir, output_dir):
         return
     if len(InputDirList) <= 0:
         print(f"Empty dir: {FullInputDir}")
-        return False
+        return
 
-    Path(FullOutputDir).mkdir(exist_ok=True)
     if Path(input_dir).is_dir:
         pass
     else:
         print(f"Invalid Directory: {input_dir}")
+    Path(FullOutputDir).mkdir(exist_ok=True)
 
     print("🥉 Bronze")
     for file in InputDirList:
@@ -51,5 +49,5 @@ def ingest_all_mhtml(input_dir, output_dir):
             failed += 1
         else:
             passed += 1
-    print("📊 Bronze Summary:")
+    print("\n📊 Bronze Summary:")
     print(f"Total: {passed + failed} | Extracted: {passed} | Failed: {failed}\n")

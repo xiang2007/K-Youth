@@ -1,6 +1,5 @@
 from bs4 import BeautifulSoup
 from pydantic import BaseModel, Field, ValidationError
-import os
 from pathlib import Path
 
 class JobListing(BaseModel):
@@ -12,26 +11,25 @@ class JobListing(BaseModel):
 def process_all_html(input_dir, output_dir):
     success = 0
     failed = 0
-    cwd = os.getcwd()
-    FullInputDir = os.path.join(cwd, input_dir)
-    FullOutputDir = os.path.join(cwd, output_dir)
+    FullInputDir = Path(input_dir).absolute()
+    FullOutputDir = Path(output_dir).absolute()
 
-    if not os.path.isdir(FullInputDir):
+    if not FullInputDir.is_dir():
         print(f"Directory not found: {FullInputDir}")
         return False
-    os.makedirs(FullOutputDir, exist_ok=True)
-    input_dir_list = os.listdir(FullInputDir)
+    FullOutputDir.mkdir(exist_ok=True)
+    input_dir_list = [list for list in FullInputDir.iterdir()]
     print("🥈 Silver")
     for file in input_dir_list:
-        FullInfile = os.path.join(FullInputDir, file)
-        FullOutfile = os.path.join(FullOutputDir, (file.replace(".html", ".json")))
+        FullInfile = FullInputDir / file
+        FullOutfile = FullOutputDir / str(file.name).replace(".html", "json")
         if process_html(FullInfile, FullOutfile):
             success += 1
             print(f"✅ Extracted: {Path(file).name}")
         else:
             failed += 1
-    print("📊 Silver Summary:")
-    print(f"Total: {success + failed} | Processed: {success} | Skipped: {failed}\n")
+    print("\n📊 Silver Summary:")
+    print(f"Total: {success + failed} | Processed: {success} | Skipped: {failed}")
 
 
 def process_html(input_dir, output_dir):
