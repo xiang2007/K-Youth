@@ -74,7 +74,7 @@ def process_html(input_dir, output_dir):
         )
     except ValidationError as e:
         for error in e.errors():
-            logging.warning(f"⚠️ Failed to process: {str(error['loc'][0])} | Reason: %s {input_dir.name}")
+            logging.warning(f"⚠️ Failed to process: {str(error['loc'][0])} | Reason: {input_dir.name}")
         return False
 
     with open(output_dir, 'w', encoding='utf-8') as outfile:
