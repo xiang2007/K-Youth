@@ -20,12 +20,12 @@ def process_all_html(input_dir, output_dir):
         return
 
     FullOutputDir.mkdir(exist_ok=True)
-    input_dir_list = [list for list in FullInputDir.iterdir()]
+    input_dir_list = Path(FullInputDir).glob("*.html")
     print("🥈 Silver")
 
     for file in input_dir_list:
         FullInfile = FullInputDir / file
-        FullOutfile = FullOutputDir / str(file.name).replace(".html", "json")
+        FullOutfile = FullOutputDir / str(file.name).replace(".html", " .json")
         if process_html(FullInfile, FullOutfile):
             success += 1
             logging.info(f"✅ Extracted: {Path(file).name}")

@@ -1,5 +1,6 @@
 import email
 import logging
+
 from pathlib import Path
 
 def ingest_proccess(input_dir, output_dir):
@@ -27,12 +28,9 @@ def ingest_all_mhtml(input_dir, output_dir):
     FullOutputDir = Path(output_dir).resolve()
 
     try:
-        InputDirList = [item for item in Path(FullInputDir).iterdir() if item.is_file()]
+        InputDirList = Path(FullInputDir).glob("*.mhtml")
     except FileNotFoundError:
         logging.error(f"Directory not found: {input_dir}")
-        return
-    if len(InputDirList) <= 0:
-        logging.error(f"Empty dir: {input_dir}")
         return
 
     if Path(input_dir).is_dir:

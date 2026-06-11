@@ -4,10 +4,40 @@ import logging
 from pathlib import Path
 from hashlib import sha256
 
+def setup_db(cursor):
+    cursor.execute(
+        """
+            CREATE TABLE IF NOT EXISTS jobs(
+            source_id text PRIMARY KEY,
+            job_title text,
+            company text,
+            description text,
+            content_hash TEXT,
+            quality TEXT
+        );
+        """
+    )
+    cursor.execute(
+        """
+            CREATE TABLE IF NOT EXISTS jobs_quarantine(
+            source_id TEXT PRIMARY KEY,
+            job_title TEXT,
+            company TEXT,
+            description TEXT,
+            content_hash TEXT,
+            quality TEXT
+        );
+        """
+    )
+
+
 def get_data_from_json(input_dir, infile):
     try:
-        with open(input_dir, 'r') as file:
+        with open(input_dir, 'r', encoding='utf-8') as file:
             data = json.load(file)
+    except UnicodeDecodeError:
+        logging.error(f"Unable to decode {infile}")
+        return None
     except (PermissionError) as e:
         logging.error(f"Unable to open/read json: {infile} Reason: {e}")
         return None
@@ -23,7 +53,7 @@ def get_data_from_json(input_dir, infile):
         "content_hash": content_hash,
     }
 
-def load_json_to_database(input_dir, connection, cursor):
+def load_json_to_database(input_dir, cursor):
     infile = Path(input_dir).name
     data = get_data_from_json(input_dir, infile)
     if data is None:
@@ -38,13 +68,10 @@ def load_json_to_database(input_dir, connection, cursor):
         """, 
         (data["source_id"], data["source_id"])
     )
-    if cursor.fetchone():
-        logging.warning(f"⏭️ Skipped (duplicate): {infile}")
-        return False
     try:
         cursor.execute(
         """
-            INSERT INTO jobs (source_id, job_title, company, description, content_hash)
+            INSERT OR IGNORE INTO jobs (source_id, job_title, company, description, content_hash)
             VALUES (?, ?, ?, ?, ?)
         """,
             (data["source_id"], data["job_title"], data["company"], data["description"], data["content_hash"])
@@ -52,13 +79,15 @@ def load_json_to_database(input_dir, connection, cursor):
     except Exception as e:
         logging.error(f"Error at: {str(infile)} Reason: {str(e)}")
         return False
-
-    logging.info(f"✅ Inserted: {infile}")
+    if cursor.rowcount == 1:
+        logging.info(f"✅ Inserted: {infile}")
+    else:
+        logging.warning(f"⏭️ Skipped {infile}")
     return True
 
 def load_all_jsons(input_dir, output_dir):
     try:
-        FullInfileList = [item for item in Path(input_dir).iterdir()]
+        FullInfileList = Path(input_dir).glob("*.json")
     except FileNotFoundError:
         logging.error(f"Directory not found: {input_dir}")
         return
@@ -69,32 +98,9 @@ def load_all_jsons(input_dir, output_dir):
     db_path = Path(output_dir) / "jobs.db"
     with sqlite3.connect(db_path) as connection:
         cursor = connection.cursor()
-        cursor.execute(
-            """
-                CREATE TABLE IF NOT EXISTS jobs(
-                source_id text PRIMARY KEY,
-                job_title text,
-                company text,
-                description text,
-                content_hash TEXT,
-                quality TEXT
-            );
-            """
-        )
-        cursor.execute(
-            """
-                CREATE TABLE IF NOT EXISTS jobs_quarantine(
-                source_id TEXT PRIMARY KEY,
-                job_title TEXT,
-                company TEXT,
-                description TEXT,
-                content_hash TEXT,
-                quality TEXT
-            );
-            """
-        )
+        setup_db(cursor)
         for file in FullInfileList:
-            if load_json_to_database(file, connection, cursor):
+            if load_json_to_database(file, cursor):
                 inserted += 1
             else:
                 skipped += 1
