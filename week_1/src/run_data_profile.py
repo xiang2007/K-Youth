@@ -48,6 +48,11 @@ def run_data_profile(db_path):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
+    cursor.execute("SELECT COUNT(*) FROM jobs UNION ALL SELECT COUNT(*) FROM jobs_quarantine")
+    count = cursor.fetchone()[0]
+    if count == 0:
+        logging.error(f"Database: {db_path} is empty")
+        return
     # 1) Label each record in `jobs` with a quality tag
     try:
         cursor.execute("SELECT source_id, job_title, company, description FROM jobs")
@@ -95,6 +100,7 @@ def run_data_profile(db_path):
         if item ["description"] == "NULL":
             no_desc += 1
         i += 1
+
     average = int(total / i) if i else 0
     print("--- 🔍 DATA QUALITY REPORT ---")
     print(f"📈 Total Records: {i}")
@@ -102,5 +108,4 @@ def run_data_profile(db_path):
     print(f"📝 Avg Description Length: {average} chars")
     print(f"⚠️  Shortest Description: {shortest_desc} chars\n↳ source_id: {shortest_id} | job_title: {shortest_id_title}")
     print(f"🚨 Longest Description: {longest_desc} chars\n↳ source_id: {longest_id} | job_title: {longest_id_title}")
-
     conn.close()

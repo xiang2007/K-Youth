@@ -15,18 +15,21 @@ def process_all_html(input_dir, output_dir):
     FullInputDir = Path(input_dir).resolve()
     FullOutputDir = Path(output_dir).resolve()
 
-    if not FullInputDir.is_dir():
-        logging.error(f"Directory not found: {input_dir}")
+    if not FullInputDir.exists() or not FullInputDir.is_dir():
+        logging.error(f"Directory: not found {FullInputDir.name}")
         return
 
     FullOutputDir.mkdir(exist_ok=True)
     input_dir_list = Path(FullInputDir).glob("*.html")
+    html = list(input_dir_list)
+    if not html:
+        logging.error(f"Empty Directory: {input_dir}")
+        return
     print("🥈 Silver")
 
-    for file in input_dir_list:
-        FullInfile = FullInputDir / file
+    for file in html:
         FullOutfile = FullOutputDir / str(file.name).replace(".html", " .json")
-        if process_html(FullInfile, FullOutfile):
+        if process_html(file, FullOutfile):
             success += 1
             logging.info(f"✅ Extracted: {Path(file).name}")
         else:

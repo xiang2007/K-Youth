@@ -59,15 +59,6 @@ def load_json_to_database(input_dir, cursor):
     if data is None:
         return False
 
-    cursor.execute(
-        """
-        SELECT 1 FROM jobs WHERE source_id = ?
-        UNION
-        SELECT 1 FROM jobs_quarantine WHERE source_id = ?
-        LIMIT 1
-        """, 
-        (data["source_id"], data["source_id"])
-    )
     try:
         cursor.execute(
         """
@@ -81,13 +72,21 @@ def load_json_to_database(input_dir, cursor):
         return False
     if cursor.rowcount == 1:
         logging.info(f"✅ Inserted: {infile}")
+        return True
     else:
         logging.warning(f"⏭️ Skipped {infile}")
-    return True
+        return False
 
 def load_all_jsons(input_dir, output_dir):
+    if not Path(input_dir).resolve().exists():
+        logging.error(f"Directory not found: {input_dir}")
+        return
     try:
         FullInfileList = Path(input_dir).glob("*.json")
+        json = list(FullInfileList)
+        if not json:
+            logging.error(f"Directory: {input_dir} is empty")
+            return
     except FileNotFoundError:
         logging.error(f"Directory not found: {input_dir}")
         return
@@ -99,7 +98,7 @@ def load_all_jsons(input_dir, output_dir):
     with sqlite3.connect(db_path) as connection:
         cursor = connection.cursor()
         setup_db(cursor)
-        for file in FullInfileList:
+        for file in json:
             if load_json_to_database(file, cursor):
                 inserted += 1
             else:

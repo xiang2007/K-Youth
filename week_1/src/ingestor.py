@@ -13,12 +13,12 @@ def ingest_proccess(input_dir, output_dir):
                         payload = part.get_payload(decode=True)
                         if payload is not None:
                             of.write(payload.decode("utf-8", errors="ignore"))
-                        logging.info(f"✅ Extracted: {Path(input_dir).name}")
-                        return True
-            logging.error(f"⚠️ No HTML content found in: {input_dir}")
+                            logging.info(f"✅ Extracted: {Path(input_dir).name}")
+                            return True
+            logging.error(f"⚠️ No HTML content found in: {Path(input_dir).name}")
             return False
     except FileNotFoundError:
-        logging.error(f"File: {input_dir} not found")
+        logging.error(f"File: {Path(input_dir).name} not found")
         return False
 
 def ingest_all_mhtml(input_dir, output_dir):
@@ -27,6 +27,9 @@ def ingest_all_mhtml(input_dir, output_dir):
     FullInputDir = Path(input_dir).resolve()
     FullOutputDir = Path(output_dir).resolve()
 
+    if not FullInputDir.exists():
+        logging.error(f"Directory: not found: {FullInputDir.name}")
+        return
     try:
         InputDirList = Path(FullInputDir).glob("*.mhtml")
     except FileNotFoundError:
@@ -45,8 +48,8 @@ def ingest_all_mhtml(input_dir, output_dir):
         FullOutfileDir = FullOutputDir / file.name
         outfile = str(FullOutfileDir).replace(".mhtml", ".html")
         if ingest_proccess(FullInfileDir, outfile):
-            failed += 1
-        else:
             passed += 1
+        else:
+            failed += 1
     print("\n📊 Bronze Summary:")
     print(f"Total: {passed + failed} | Extracted: {passed} | Failed: {failed}\n")

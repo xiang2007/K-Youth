@@ -154,4 +154,13 @@ After `profile`:
 
 ### Day 1: The Extractor (Medallion & Lakehouses)
 Why is it useful to keep the original raw HTML files instead of directly inserting processed data into the database? What problems become easier to debug or recover from?
-- **Answer**: INSERT ANSWER HERE
+- **Answer**: Keeping the original raw HTML files is valuable because they serve as an immutable source of truth. If a parsing bug, schema  change, or data quality issue is discovered later, you can reprocess the raw files without needing to re-scrape the website. This prevents data loss and allows the pipeline to evolve while preserving access to the original content.Raw files also make debugging and recovery much easier. When incorrect records appear in the database, engineers can compare the processed output against the original HTML to determine whether the problem came from data collection, parsing, transformation, or loading. If a database is corrupted or processing logic changes, the raw files enable a full rebuild of downstream datasets, improving reliability and reproducibility.
+
+### Day 2: Treatment Plant (ETL vs ELT & Scale)
+- **Answer**: Cloud systems often prefer ELT (Extract, Load, Transform) because storage is relatively inexpensive and keeping raw data preserves flexibility. By loading data first, teams can apply different transformation rules later, reprocess historical data when requirements change, and avoid losing information due to mistakes in early cleaning steps. This approach also supports multiple use cases from the same raw dataset.
+
+### Day 3: The Blueprint & The Vault (Storage & Contracts)
+- **Answer**: If an important field such as job_title disappears, the pipeline should fail validation and stop processing rather than loading incomplete records. A missing required field often indicates a schema change, extraction bug, or upstream data issue. Failing early makes the problem immediately visible so it can be investigated and fixed before bad data spreads through reports, dashboards, or downstream systems. Silently inserting NULL values can hide data quality problems and lead to incorrect analytics or business decisions. Similarly, INSERT OR IGNORE helps maintain data integrity by preventing duplicate records from being inserted when the same data is loaded multiple times.
+
+### Day 4: The QA Inspector & Orchestrator (Orchestration & DAGs)
+**Answer**: If processor.py crashes halfway through execution, some files may be processed while others remain unfinished, leaving the pipeline in a partially completed state. Manual recovery usually requires checking which steps succeeded, rerunning scripts, and ensuring duplicate or inconsistent data is not introduced. Automated orchestration tools such as Apache Airflow are more reliable because they track task status, manage dependencies, and automatically retry failed tasks.
