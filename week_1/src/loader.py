@@ -59,13 +59,32 @@ def load_json_to_database(input_dir, cursor):
     if data is None:
         return False
 
+    source_id = data["source_id"]
+
+    cursor.execute(
+        """
+            SELECT 1
+            FROM jobs
+            WHERE source_id = ?
+            UNION ALL
+            SELECT 1
+            FROM jobs_quarantine
+            WHERE source_id = ?
+            LIMIT 1
+        """,
+        (source_id, source_id),
+    )
+    if cursor.fetchone():
+        logging.warning(f"⏭️ Skipped {infile}")
+        return False
+
     try:
         cursor.execute(
         """
-            INSERT OR IGNORE INTO jobs (source_id, job_title, company, description, content_hash)
+            INSERT INTO jobs (source_id, job_title, company, description, content_hash)
             VALUES (?, ?, ?, ?, ?)
         """,
-            (data["source_id"], data["job_title"], data["company"], data["description"], data["content_hash"])
+            (source_id, data["job_title"], data["company"], data["description"], data["content_hash"])
         )
     except Exception as e:
         logging.error(f"Error at: {str(infile)} Reason: {str(e)}")
