@@ -60,19 +60,20 @@ def load_json_to_database(input_dir, cursor):
         return False
 
     source_id = data["source_id"]
+    content_hash = data["content_hash"]
 
     cursor.execute(
         """
             SELECT 1
             FROM jobs
-            WHERE source_id = ?
+            WHERE content_hash = ?
             UNION ALL
             SELECT 1
             FROM jobs_quarantine
-            WHERE source_id = ?
+            WHERE content_hash = ?
             LIMIT 1
         """,
-        (source_id, source_id),
+        (content_hash, content_hash),
     )
     if cursor.fetchone():
         logging.warning(f"⏭️ Skipped {infile}")
@@ -81,7 +82,7 @@ def load_json_to_database(input_dir, cursor):
     try:
         cursor.execute(
         """
-            INSERT INTO jobs (source_id, job_title, company, description, content_hash)
+            INSERT OR IGNORE INTO jobs (source_id, job_title, company, description, content_hash)
             VALUES (?, ?, ?, ?, ?)
         """,
             (source_id, data["job_title"], data["company"], data["description"], data["content_hash"])
