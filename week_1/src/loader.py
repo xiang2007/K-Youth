@@ -89,12 +89,8 @@ def load_json_to_database(input_dir, cursor):
     except Exception as e:
         logging.error(f"Error at: {str(infile)} Reason: {str(e)}")
         return False
-    if cursor.rowcount == 1:
-        logging.info(f"✅ Inserted: {infile}")
-        return True
-    else:
-        logging.warning(f"⏭️ Skipped {infile}")
-        return False
+    logging.info(f"✅ Inserted: {infile}")
+    return True
 
 def load_all_jsons(input_dir, output_dir):
     if not Path(input_dir).resolve().exists():
