@@ -1,8 +1,8 @@
 from google import genai
-from google.genai import types
 from ollama import generate
 from dotenv import load_dotenv
 import os
+
 
 def prompt_model(model: str, prompt: str) -> str :
 
