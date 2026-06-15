@@ -1,48 +1,50 @@
 import os
+import time
+from dataclasses import dataclass
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from ollama import generate
 
-def prompt_model(model: str, prompt: str) -> str:
+load_dotenv()
+
+client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+
+@dataclass
+class ModelResult:
+    text: str
+    total_tokens: int
+    time_taken: float
+
+def prompt_model(model: str, prompt: str) -> ModelResult:
+    start = time.perf_counter()
 
     if "gemini" in model:
-        load_dotenv()
-        key = os.getenv("GOOGLE_API_KEY")
-        client = genai.Client(api_key=key)
-        
-        # Gemini uses the types configuration
         config = types.GenerateContentConfig(
-            temperature=0.0  # Stable and fast for Gemini
+            temperature=0.0
         )
-        
         response = client.models.generate_content(
             model=model,
             contents=prompt,
             config=config
         )
-        print(f"Token used: {response.usage_metadata.total_token_count}")
-        return response.text
-        
+        total_tokens = response.usage_metadata.total_token_count
+        text = str(response.text)
+
     else:
-        if "qwen" in model:
-            response = generate(
+        response = generate(
             model=model,
-            prompt=prompt,
-            options={
-            'temperature': 0.0,
-            'num_predict': 50,
-            'keep_alive': 0
-        }
+            prompt=prompt
         )
-        else:
-            response = generate(
-                model=model, 
-                prompt=prompt,
-                options={
-                    'temperature': 0.3
-                }
-            )
-        res = response['response']
-        print(f"Total tokens: {response['prompt_eval_count'] + response['eval_count']}")
-    return res
+
+        text = response["response"]
+        total_tokens = response['prompt_eval_count'] + response['eval_count']
+
+    end = time.perf_counter()
+    elapsed = end - start
+
+    return ModelResult(
+        text=text,
+        total_tokens=total_tokens,
+        time_taken=elapsed
+    )
