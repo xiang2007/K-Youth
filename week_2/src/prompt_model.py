@@ -24,57 +24,79 @@ class ModelResult:
     total_tokens: int
     time_taken: float
 
-def prompt_model(model: str, prompt: str) -> ModelResult | None:
-    start = time.perf_counter()
-
-    if "gemini" in model and noApi != 1:
-        try:
-            response = prompt_google(model, prompt)
-            total_tokens = response.usage_metadata.total_token_count
-            text = str(response.text)
-        except Exception as e:
-            print(f"Google Genai Error {str(e.args[0]).split('{')}")
+def prompt_model_extra(model: str, prompt: str) -> ModelResult | None:
+    if "gemini" in model and noApi == 0:
+        response = prompt_google(model, prompt)
+        if not response:
             print("Fallback to local llm")
-            response = prompt_local_llm("lama3.1:latest", prompt)
+            response = prompt_local_llm("llama3.1:latest", prompt)
             if not response:
                 return None
-            text = response["response"]
-            total_tokens = response['prompt_eval_count'] + response['eval_count']
-
     else:
         response = prompt_local_llm(model, prompt)
         if not response:
             return None
-        text = response["response"]
-        total_tokens = response['prompt_eval_count'] + response['eval_count']
-
-    end = time.perf_counter()
-    elapsed = end - start
-
-    return ModelResult(
-        text=text,
-        total_tokens=total_tokens,
-        time_taken=elapsed
-    )
-
-def prompt_google(model: str, prompt: str) -> GenerateContentResponse:
-    config = types.GenerateContentConfig(
-            temperature=0.0
-        )
-    response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=config
-        )
     return response
 
-def prompt_local_llm(model: str, prompt: str) -> GenerateResponse:
+
+def prompt_model(model: str, prompt: str) -> str | None:
+    if "gemini" in model and noApi != 1:
+        response = prompt_google(model, prompt)
+        if not response:
+            print("Fallback to local llm")
+            response = prompt_local_llm("llama3.1:latest", prompt)
+            if not response:
+                return None
+    else:
+        response = prompt_local_llm(model, prompt)
+        if not response:
+            return None
+    return response.text
+
+def prompt_google(model: str, prompt: str) -> ModelResult | None:
+    total_token : int
+
+    start = time.perf_counter()
+    config = types.GenerateContentConfig(
+            temperature=0.0
+    )
+    try:
+        response = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=config
+        )
+    except Exception as e:
+        print(f"Gemini error: {((e.args[0]).split(',', 5))[1]}")
+        return None
+    total_token = response.usage_metadata.total_token_count
+    text = str(response.text)
+    end = time.perf_counter()
+    total_time = end - start
+    return ModelResult(
+        text=text,
+        total_tokens=total_token,
+        time_taken=total_time
+    )
+
+def prompt_local_llm(model: str, prompt: str) -> ModelResult | None:
+    total_token : int
+
+    start = time.perf_counter()
     try:
         response = generate(
                 model=model,
                 prompt=prompt
             )
+        text = response["response"]
+        total_token = response['prompt_eval_count'] + response['eval_count']
+        end = time.perf_counter()
+        total_time = end - start
     except Exception as e:
         print(f"Ollama error: {e}")
         return None
-    return response
+    return ModelResult(
+        text=text,
+        total_tokens=total_token,
+        time_taken=total_time
+    )
