@@ -27,7 +27,7 @@ class ModelResult:
 def prompt_model_extra(model: str, prompt: str) -> ModelResult | None:
     if "gemini" in model and noApi == 0:
         response = prompt_google(model, prompt)
-        if not response:
+        if not response: 
             print("Fallback to local llm")
             response = prompt_local_llm("llama3.1:latest", prompt)
             if not response:

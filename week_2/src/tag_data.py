@@ -78,9 +78,8 @@ def call_with_retry(fn, *args, max_retries: int = 3, base_delay: float = 2.0, **
     return None
 
 def db_size(cur : sqlite3.Cursor) -> int:
-    cur.execute("SELECT source_id FROM jobs")
-    res = cur.fetchall()
-    return len(res)
+    cur.execute("SELECT COUNT(*) FROM jobs")
+    return cur.fetchone()[0]
 
 
 def fetch_next_batch(cursor: sqlite3.Cursor, batch_size: int, offset: int) -> Optional[List[Any]]:
@@ -95,62 +94,49 @@ def fetch_next_batch(cursor: sqlite3.Cursor, batch_size: int, offset: int) -> Op
 
     return batch
 
-def insert_to_db(cursor : sqlite3.Cursor, input):
-    if not input:
-        print("Invalid input")
-        return
-    try:
-        cursor.execute(
-        "UPDATE jobs SET tech_stack = ? WHERE source_id = ?", (input[1], input[0])
-        )
-    except IndexError:
-        print("Index Error")
-        print(input)
+def insert_to_db(cursor: sqlite3.Cursor, source_id: str, tech_stack: str) -> None:
+    cursor.execute(
+        "UPDATE jobs SET tech_stack = ? WHERE source_id = ?", (tech_stack, source_id)
+    )
 
 
-def llm(model, job_description) -> ModelResult | None:
-    if "gemini" in model:
-        return gemini_llm(model, job_description)
-    else:
-        return local_llm(model, job_description)
+PROMPT_TEMPLATE = """Extract the tech stack from each job description.
 
-def local_llm(model, job_description) -> ModelResult | None:
-    prompt = f"""Extract the tech stack from each job description.
+Rules:
+- Return only technologies.
+- Do not infer technologies.
+- Do not give any examples
+- Output format: ID|None if no technologies are found. ID will be the actual id
+- Output format: ID|tech1, tech2, tech3
+{extra_rules}
+INPUT:{job_description}
 
-    Rules:
-    - Return only technologies.
-    - Do not infer technologies.
-    - Do not include "Here is the extracted tech stack for each job description:"
-    - Output format: ID|None if no technologies are found. ID will be the actual id
-    - Output format: ID|tech1, tech2, tech3
-    - Do not give any examples
-    - Each technical stack is separated by a space and a comma
+Output:"""
 
-    INPUT:{job_description}
+# Local models tend to add a preamble or use inconsistent separators, so they
+# need a couple of extra rules that Gemini doesn't.
+LOCAL_MODEL_EXTRA_RULES = (
+    '- Do not include "Here is the extracted tech stack for each job description:"\n'
+    "- Each technical stack is separated by a space and a comma\n"
+)
 
-    Output:"""
-    res = prompt_model_extra(model, prompt)
-    if not res:
-        return None
-    return res
 
-def gemini_llm(model, job_description) -> ModelResult | None:
-    prompt = f"""Extract the tech stack from each job description.
+def llm(model: str, job_description) -> ModelResult | None:
+    extra_rules = LOCAL_MODEL_EXTRA_RULES if "gemini" not in model else ""
+    prompt = PROMPT_TEMPLATE.format(extra_rules=extra_rules, job_description=job_description)
+    return prompt_model_extra(model, prompt)
 
-    Rules:
-    - Return only technologies.
-    - Do not infer technologies.
-    - Output format: ID|None if no technologies are found. ID will be the actual id
-    - Output format: ID|tech1, tech2, tech3
-    - Do not give any examples
+def process_response(cursor: sqlite3.Cursor, text: str) -> None:
+    """Parse one batch of 'ID|tech1, tech2, ...' lines and write each to the db."""
+    for line in text.splitlines():
+        parsed = line.split('|', 1)
+        if len(parsed) != 2:
+            print(f"Skipping malformed line: {line!r}")
+            continue
+        source_id, tech_stack = parsed
+        insert_to_db(cursor, source_id, tech_stack)
+        print(f"Analyzed {source_id}: {tech_stack}")
 
-    INPUT:{job_description}
-
-    Output:"""
-    res = prompt_model_extra(model, prompt)
-    if not res:
-        return None
-    return res
 
 def tag_data(
     db_url: str,
@@ -158,6 +144,11 @@ def tag_data(
     max_retries: int = 3,
     retry_base_delay: float = 2.0,
 ):
+    fulldburl = Path(db_url).resolve()
+
+    if not fulldburl.exists():
+        print(f"db_url: {db_url} not exist")
+        return
     fulldburl = Path(db_url).resolve()
 
     if not fulldburl.exists():
@@ -203,11 +194,7 @@ def tag_data(
             token += res.total_tokens
             avg_tokens_per_job = res.total_tokens / len(batch)
 
-            for line in res.text.splitlines():
-                parsed = line.split('|', 1)
-                insert_to_db(cs, parsed)
-                if len(parsed) == 2:
-                    print(f"Analyzed {parsed[0]}: {parsed[1]}")
+            process_response(cs, res.text)
 
             curr_offset += len(batch)
             remaining -= len(batch)
