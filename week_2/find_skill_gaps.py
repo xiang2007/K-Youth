@@ -91,7 +91,7 @@ def getDbSkill(db_path: Path) -> Set[str] | None:
             cs.execute("SELECT tech_stack FROM jobs")
             rows = cs.fetchall()
     except Exception as e:
-        print(f"sqlite errorA: {e}")
+        print(f"sqlite error: {e}")
         return None
 
     for (tech_stack_str,) in rows:
