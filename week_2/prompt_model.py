@@ -1,12 +1,10 @@
 import os
 import time
-import ollama
 from dataclasses import dataclass
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-from google.genai.types import GenerateContentResponse
-from ollama import generate, _types
+from ollama import generate
 
 load_dotenv()
 
