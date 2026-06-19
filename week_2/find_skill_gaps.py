@@ -85,10 +85,14 @@ def extractDBSkill(tech_stack: str, techSet: Set[str]) -> Set[str] | None:
 
 def getDbSkill(db_path: Path) -> Set[str] | None:
     techStack: Set[str] = set()
-    with sqlite3.connect(db_path) as conn:
-        cs = conn.cursor()
-        cs.execute("SELECT tech_stack FROM jobs")
-        rows = cs.fetchall()
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cs = conn.cursor()
+            cs.execute("SELECT tech_stack FROM jobs")
+            rows = cs.fetchall()
+    except Exception as e:
+        print(f"sqlite errorA: {e}")
+        return None
 
     for (tech_stack_str,) in rows:
         if tech_stack_str:
