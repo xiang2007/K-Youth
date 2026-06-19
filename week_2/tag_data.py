@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Optional, List, Any, Dict
-from src.prompt_model import prompt_model_extra, ModelResult
+from prompt_model import prompt_model_extra, ModelResult
 import sqlite3
 import time
 
@@ -83,10 +83,13 @@ def db_size(cur : sqlite3.Cursor) -> int:
 
 
 def fetch_next_batch(cursor: sqlite3.Cursor, batch_size: int, offset: int) -> Optional[List[Any]]:
-    cursor.execute(
-        "SELECT source_id, description FROM jobs ORDER BY source_id LIMIT ? OFFSET ?",
-        (batch_size, offset)
-    )
+    try:
+        cursor.execute(
+            "SELECT source_id, description FROM jobs ORDER BY source_id LIMIT ? OFFSET ?",
+            (batch_size, offset)
+        )
+    except Exception as e:
+        print(f"sql3 error: {e}")
     batch = cursor.fetchall()
 
     if not batch:
@@ -139,7 +142,7 @@ def process_response(cursor: sqlite3.Cursor, text: str) -> None:
 
 
 def tag_data(
-    db_url: str,
+    db_url: Path,
     model: str = "gemini-3.1-flash-lite-preview",
     max_retries: int = 3,
     retry_base_delay: float = 2.0,
@@ -204,3 +207,6 @@ def tag_data(
             batch_size = calculate_batch_size(model, avg_tokens_per_job)
 
         print(f"Total tokens used: {token}, took {elapsed_time * 1000} ms")
+
+if __name__ == "__main__":
+    tag_data(Path("data/jobs_d1.db"))

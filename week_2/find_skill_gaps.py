@@ -108,3 +108,6 @@ def find_skill_gaps(input_file_path: str, db_path: str) -> SkillGapResult:
         gaps = gaps,
         skill = skill
     )
+
+if __name__ == "__main__":
+    print(find_skill_gaps("data/resume_d3.txt", "data/jobs_d3_eval.db").gaps)

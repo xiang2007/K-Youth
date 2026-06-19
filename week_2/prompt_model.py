@@ -100,3 +100,6 @@ def prompt_local_llm(model: str, prompt: str) -> ModelResult | None:
         total_tokens=total_token,
         time_taken=total_time
     )
+
+if __name__ == "__main__":
+    print(prompt_model("phi3:latest", "there is a car wash 20 meters from here, should i walk or drive there? Answer in 1 word."))
