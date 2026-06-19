@@ -1,5 +1,6 @@
 import os
 import time
+import sys
 from dataclasses import dataclass
 from dotenv import load_dotenv
 from google import genai
@@ -100,4 +101,10 @@ def prompt_local_llm(model: str, prompt: str) -> ModelResult | None:
     )
 
 if __name__ == "__main__":
-    print(prompt_model("phi3:latest", "there is a car wash 20 meters from here, should i walk or drive there? Answer in 1 word."))
+    if len(sys.argv) < 3:
+        print("Usage: python your_script.py <model> <prompt>")
+        sys.exit(1)
+
+    model = sys.argv[1]
+    prompt = sys.argv[2]
+    print(prompt_model(model, prompt))
