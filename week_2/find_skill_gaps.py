@@ -56,7 +56,7 @@ def read_input_file(input_file_path : Path) -> str | None:
     return None
 
 def get_file_techStack(fileContent : str)-> List[str] | None:
-    raws_skill = re.sub(r"(?i)^Technical\s+\Skills:\s*", "", fileContent)
+    raws_skill = re.sub(r"(?i)^Technical\s+Skills:\s*", "", fileContent)
     pattern = r',|(?<!\bCI)(?<!\bA)/(?!CD)(?!B\s+testing\b)'
     raw_split = re.split(pattern, raws_skill, flags=re.IGNORECASE)
     res = [skill.strip() for skill in raw_split if skill.split()]
