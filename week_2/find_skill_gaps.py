@@ -8,14 +8,14 @@ class SkillGapResult(BaseModel):
     gaps: List[str]
     skill : List[str]
 
-# Tokens that need a fixed casing because lower()-ing them isn't enough
-# (e.g. "c" -> "C", not "c").
+# Variant spellings that need to collapse onto one canonical (lowercase)
+# form so e.g. "cpp" and "c++" are recognized as the same skill.
 ALIAS_CANON = {
-    "c": "C",
-    "c++": "C++",
-    "cpp": "C++",
-    "ci/cd": "CI/CD",
-    "a/b testing": "A/B Testing",
+    "c": "c",
+    "c++": "c++",
+    "cpp": "c++",
+    "ci/cd": "ci/cd",
+    "a/b testing": "a/b testing",
 }
 
 # Tokens that contain "/" but should NOT be split apart (mirrors the
@@ -40,19 +40,36 @@ def normalize_skill(raw: str) -> Set[str]:
         for part in token.split("/"):
             result |= normalize_skill(part)
         return result
-    return {ALIAS_CANON.get(token.lower(), token)}
+    return {ALIAS_CANON.get(token.lower(), token.lower())}
 
 def read_input_file(input_file_path : Path) -> str | None:
     try:
-        with open(input_file_path, 'r') as f:
-            t = (f.read()).splitlines()
-            for i in t:
-                if "Technical Skill" in i:
-                    return i
+        lines = input_file_path.read_text().splitlines()
     except FileNotFoundError:
         print("Oops! That file doesn't exist.")
+        return None
     except PermissionError:
         print("You don't have permission to read this file.")
+        return None
+    except (OSError, UnicodeDecodeError) as e:
+        print(f"Couldn't read that file: {e}")
+        return None
+
+    for idx, line in enumerate(lines):
+        if "Technical Skill" in line:
+            # The skills list can wrap onto following lines (no comma/period
+            # at end of line). Keep absorbing lines until we hit a blank
+            # line or what looks like the start of a new "Label:" field
+            # (e.g. "Languages:", "Additional Skills:").
+            collected = [line]
+            for cont in lines[idx + 1:]:
+                stripped = cont.strip()
+                if not stripped:
+                    break
+                if re.match(r"^[A-Za-z][A-Za-z /]{0,40}:", stripped):
+                    break
+                collected.append(stripped)
+            return " ".join(collected)
     return None
 
 def get_file_techStack(fileContent : str)-> List[str] | None:

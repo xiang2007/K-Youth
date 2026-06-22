@@ -1,0 +1,45 @@
+# --- Version Control ---
+.git
+.gitignore
+.gitattributes
+
+# --- Docker ---
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# --- Environment & Secrets ---
+.env
+.env.*
+*.pem
+*.key
+id_rsa
+
+# --- Local IDEs & OS Trash ---
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+.DS_Store
+Thumbs.db
+
+# --- Dependency & Build Directories ---
+# Node.js
+node_modules/
+npm-debug.log
+dist/
+build/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+env/
+.pytest_cache/
+.poetry/
+
+# Go / Rust / Java
+target/
+bin/
+out/
