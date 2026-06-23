@@ -60,7 +60,13 @@
       <button id="send-btn" class="btn btn-primary px-4">Send</button>
     </div>
 
-  </div>
+   </div>
+   <div id="pdf-debug" class="mt-2" style="display:none;">
+   <pre id="pdf-debug-text"
+       style="max-height:200px; overflow-y:auto; font-size:.75rem;
+              background:#fff; border:1px solid #dee2e6; padding:.5rem;
+              border-radius:.375rem;"></pre>
+    </div>
 </div>
 
 <script>
@@ -93,7 +99,11 @@
       }
 
       pdfText = text.trim();
-      pdfStatus.textContent = `✔ "${file.name}" — ${pdfText.length} characters`;
+    const debugBox = document.getElementById('pdf-debug');
+    const debugText = document.getElementById('pdf-debug-text');
+    debugBox.style.display = 'block';
+    debugText.textContent = pdfText;
+    pdfStatus.textContent = `✔ "${file.name}" — ${pdfText.length} characters`;
     } catch (err) {
       pdfStatus.textContent = '⚠ Could not read PDF';
       console.error(err);
@@ -134,18 +144,23 @@
         body:    JSON.stringify(body),
       });
       const data = await res.json();
-      addMessage('assistant', data.reply ?? '(no reply)');
-    } catch {
-      addMessage('assistant', '⚠ Could not reach the backend.');
+      if (!res.ok) {
+        // Surface the actual error detail from the backend
+        addMessage('assistant', `⚠ Error: ${data.error ?? data.detail ?? res.statusText}`);
+      } else {
+        addMessage('assistant', data.reply ?? '(no reply)');
+      }
+    } catch (err) {
+      addMessage('assistant', `⚠ Could not reach the backend: ${err.message}`);
+    } finally {
+      sendBtn.disabled    = false;
+      sendBtn.textContent = 'Send';
+
+      // Always clear PDF state after sending, even on error
+      pdfText             = '';
+      pdfInput.value      = '';
+      pdfStatus.textContent = 'No file chosen';
     }
-
-    sendBtn.disabled    = false;
-    sendBtn.textContent = 'Send';
-
-    // Clear PDF after sending
-    pdfText             = '';
-    pdfInput.value      = '';
-    pdfStatus.textContent = 'No file chosen';
   }
 
   sendBtn.addEventListener('click', send);

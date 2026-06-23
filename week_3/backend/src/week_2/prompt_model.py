@@ -5,10 +5,11 @@ from dataclasses import dataclass
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-from ollama import generate
+from ollama import Client
 
 load_dotenv()
-
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+ollama_client = Client(host=OLLAMA_HOST)
 noApi = 0
 
 try:
@@ -79,16 +80,14 @@ def prompt_google(model: str, prompt: str) -> ModelResult | None:
     )
 
 def prompt_local_llm(model: str, prompt: str) -> ModelResult | None:
-    total_token : int
-
     start = time.perf_counter()
     try:
-        response = generate(
-                model=model,
-                prompt=prompt
-            )
+        response = ollama_client.generate(
+            model=model,
+            prompt=prompt
+        )
         text = response["response"]
-        total_token = response['prompt_eval_count'] + response['eval_count']
+        total_token = response["prompt_eval_count"] + response["eval_count"]
         end = time.perf_counter()
         total_time = end - start
     except Exception as e:
