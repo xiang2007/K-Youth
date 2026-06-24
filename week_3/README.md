@@ -10,7 +10,7 @@ A containerized chat application that lets users upload PDFs (resumes) for skill
 
 - **Frontend** — A single-page Bootstrap chat UI with client-side PDF text extraction (PDF.js)
 - **Backend** — A FastAPI server that proxies chat requests and performs skill-gap analysis using an LLM
-- **Ollama** — A local AI model server (runs on NVIDIA GPU) that powers both chat and skill extraction
+- **Ollama** — A local AI model server (runs on CPU)
 
 ---
 
@@ -18,7 +18,6 @@ A containerized chat application that lets users upload PDFs (resumes) for skill
 
 - [Docker](https://docs.docker.com/get-docker/) (24+)
 - [Docker Compose](https://docs.docker.com/compose/) (v2.20+)
-- An NVIDIA GPU with [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit) and [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed (for the Ollama service)
 
 ---
 
