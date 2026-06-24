@@ -1,8 +1,5 @@
-import json
 import os
 import tempfile
-import time
-import traceback
 import uvicorn
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
@@ -36,24 +33,13 @@ def chat(body: ChatRequest) -> ChatResponse:
         if not JOBS_DB_PATH.is_file():
             raise HTTPException(status_code=500, detail="Jobs database not found")
 
-        temp_path: str | None = None
-        try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".txt", delete=False, encoding="utf-8"
-            ) as tmp:
-                tmp.write(body.pdf_text)
-                temp_path = tmp.name
-
-            result = find_skill_gaps(temp_path, str(JOBS_DB_PATH))
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=True, encoding="utf-8"
+        ) as tmp:
+            tmp.write(body.pdf_text)
+            tmp.flush()
+            result = find_skill_gaps(tmp.name, str(JOBS_DB_PATH))
             return ChatResponse(reply=format_skill_gap_result(result))
-
-        except Exception as e:
-            traceback.print_exc()
-            raise HTTPException(status_code=500, detail=str(e))
-
-        finally:
-            if temp_path:
-                Path(temp_path).unlink(missing_ok=True)
 
     reply = prompt_model(body.model, body.message)
     if reply is None:

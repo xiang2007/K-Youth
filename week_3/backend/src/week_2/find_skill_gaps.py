@@ -1,3 +1,4 @@
+from functools import lru_cache
 import json
 import os
 import re
@@ -5,13 +6,14 @@ import sqlite3
 from pathlib import Path
 from typing import List, Set
 
-from ollama import Client
 from pydantic import BaseModel
 
+from week_2.prompt_model import ollama_client
+
 # ── Ollama client ────────────────────────────────────────────────────────────
-OLLAMA_HOST  = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+# Shared with prompt_model.py — don't create a second instance.
+# Model config is local since prompt_model.py doesn't expose it.
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:latest")
-ollama_client = Client(host=OLLAMA_HOST)
 
 
 # ── Result model ─────────────────────────────────────────────────────────────
@@ -23,7 +25,6 @@ class SkillGapResult(BaseModel):
 # ── Alias / protected token tables ───────────────────────────────────────────
 # All keys AND values must already be lowercase.
 ALIAS_CANON: dict[str, str] = {
-    "c":           "c",
     "c++":         "c++",
     "cpp":         "c++",
     "ci/cd":       "ci/cd",
@@ -41,6 +42,14 @@ def normalize_skill(raw: str) -> Set[str]:
         return set()
     if token in PROTECTED_TOKENS:
         return {ALIAS_CANON[token]}
+    # Ollama may strip "/" from compound skills ("a/b testing" → "ab testing");
+    # check the slash-stripped form against protected tokens too.
+    stripped = token.replace("/", "")
+    stripped_protected = {t.replace("/", "") for t in PROTECTED_TOKENS}
+    if stripped in stripped_protected:
+        # Map back to the canonical form
+        canon = next(c for c, t in ALIAS_CANON.items() if t.replace("/", "") == stripped)
+        return {canon}
     if "/" in token:
         result: Set[str] = set()
         for part in token.split("/"):
@@ -57,9 +66,13 @@ def extract_skills_with_ollama(text: str) -> List[str]:
     """
     prompt = (
         "Extract every technical skill mentioned in the text below.\n"
+        "If the text is a list of skills (e.g. comma-separated), return ALL of them.\n"
+        "Keep compound skills intact with slashes: return \"a/b testing\" and \"ci/cd\",\n"
+        "NOT \"ab testing\" or \"cicd\".\n"
         "Return ONLY a JSON array of lowercase strings — no explanation, "
         "no markdown fences, no extra keys.\n\n"
-        'Example: ["python", "docker", "postgresql", "ci/cd"]\n\n'
+        'Example input: "Python, Docker, SQL"\n'
+        'Example output: ["python", "docker", "sql"]\n\n'
         f"Text:\n{text}"
     )
     try:
@@ -93,7 +106,7 @@ def parse_infile(input_file_path: str) -> Set[str] | None:
     if not text.strip():
         return None
 
-    raw_skills = extract_skills_with_ollama(text.lower())
+    raw_skills = extract_skills_with_ollama(text)
     if not raw_skills:
         return None
 
@@ -114,8 +127,9 @@ def _parse_db_tech_stack(tech_stack: str) -> Set[str]:
     return result
 
 
-def getDbSkill(db_path: Path) -> Set[str] | None:
-    """Return every canonical skill present in the jobs database."""
+@lru_cache(maxsize=1)
+def _load_db_skills(db_path: str) -> Set[str] | None:
+    """Load and cache all canonical skills from the jobs database."""
     tech_set: Set[str] = set()
     try:
         with sqlite3.connect(db_path) as conn:
@@ -129,6 +143,11 @@ def getDbSkill(db_path: Path) -> Set[str] | None:
             tech_set |= _parse_db_tech_stack(tech_stack_str.lower())
 
     return tech_set or None
+
+
+def getDbSkill(db_path: Path) -> Set[str] | None:
+    """Return every canonical skill present in the jobs database (cached)."""
+    return _load_db_skills(str(db_path))
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

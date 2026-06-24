@@ -21,8 +21,6 @@ services:
       - "8000:8000"
     environment:
       - OLLAMA_HOST=http://ollama:11434
-    volumes:
-      - ../week_2/data:/app/src/week_2/data:ro
     depends_on:
       - ollama
 
@@ -39,3 +37,7 @@ services:
 
 volumes:
   ollama_data:
+
+networks:
+  default:
+    driver: bridge

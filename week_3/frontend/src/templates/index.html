@@ -61,12 +61,6 @@
     </div>
 
    </div>
-   <div id="pdf-debug" class="mt-2" style="display:none;">
-   <pre id="pdf-debug-text"
-       style="max-height:200px; overflow-y:auto; font-size:.75rem;
-              background:#fff; border:1px solid #dee2e6; padding:.5rem;
-              border-radius:.375rem;"></pre>
-    </div>
 </div>
 
 <script>
@@ -99,11 +93,7 @@
       }
 
       pdfText = text.trim();
-    const debugBox = document.getElementById('pdf-debug');
-    const debugText = document.getElementById('pdf-debug-text');
-    debugBox.style.display = 'block';
-    debugText.textContent = pdfText;
-    pdfStatus.textContent = `✔ "${file.name}" — ${pdfText.length} characters`;
+      pdfStatus.textContent = `✔ "${file.name}" — ${pdfText.length} characters`;
     } catch (err) {
       pdfStatus.textContent = '⚠ Could not read PDF';
       console.error(err);

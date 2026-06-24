@@ -10,13 +10,12 @@ from ollama import Client
 load_dotenv()
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 ollama_client = Client(host=OLLAMA_HOST)
-noApi = 0
-
 try:
     client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+    api_available = True
 except ValueError:
     print("No API key was provided")
-    noApi = 1
+    api_available = False
 
 @dataclass
 class ModelResult:
@@ -25,7 +24,7 @@ class ModelResult:
     time_taken: float
 
 def prompt_model_extra(model: str, prompt: str) -> ModelResult | None:
-    if "gemini" in model and noApi == 0:
+    if "gemini" in model and api_available:
         response = prompt_google(model, prompt)
         if not response: 
             print("Fallback to local llm")
@@ -40,7 +39,7 @@ def prompt_model_extra(model: str, prompt: str) -> ModelResult | None:
 
 
 def prompt_model(model: str, prompt: str) -> str | None:
-    if "gemini" in model and noApi != 1:
+    if "gemini" in model and api_available:
         response = prompt_google(model, prompt)
         if not response:
             print("Fallback to local llm")
@@ -54,8 +53,6 @@ def prompt_model(model: str, prompt: str) -> str | None:
     return response.text
 
 def prompt_google(model: str, prompt: str) -> ModelResult | None:
-    total_token : int
-
     start = time.perf_counter()
     config = types.GenerateContentConfig(
             temperature=0.0

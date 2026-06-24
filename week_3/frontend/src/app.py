@@ -5,11 +5,14 @@ from pathlib import Path
 import uvicorn
 import httpx
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 t_path = Path("src/templates").resolve()
 templates = Jinja2Templates(directory=str(t_path))
-BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -20,11 +23,10 @@ async def root(request: Request):
 async def chat(request: Request):
     data = await request.json()
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=120.0) as client:
         resp = await client.post(
             f"{BACKEND_URL}/chat",
             json=data,
-            timeout=60.0,
         )
 
     if resp.status_code >= 400:
@@ -35,8 +37,14 @@ async def chat(request: Request):
             detail = resp.text
         return JSONResponse({"error": detail}, status_code=resp.status_code)
 
-    return JSONResponse(resp.json())
+    try:
+        return JSONResponse(resp.json())
+    except httpx.InvalidJSONError:
+        return JSONResponse(
+            {"error": "Unexpected server response — please try again"},
+            status_code=502,
+        )
 
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run("app:app", host="0.0.0.0", port=8080, log_level="info")
