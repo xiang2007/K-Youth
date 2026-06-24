@@ -161,6 +161,25 @@ def find_skill_gaps(input_file_path: str, db_path: str) -> SkillGapResult:
     )
 
 
+def find_skill_gaps_from_text(pdf_text: str, db_path: str) -> SkillGapResult:
+    """Like find_skill_gaps but accepts text directly — avoids temp file I/O."""
+    file_skills = _extract_skills_from_text(pdf_text) or set()
+    db_skills   = getDbSkill(Path(db_path))          or set()
+
+    return SkillGapResult(
+        gaps  = sorted(db_skills - file_skills),
+        skill = sorted(file_skills & db_skills),
+    )
+
+
+def _extract_skills_from_text(text: str) -> Set[str] | None:
+    """Extract and normalize skills from raw text (no file I/O)."""
+    raw_skills = extract_skills_with_ollama(text)
+    if not raw_skills:
+        return None
+    return {s for skill in raw_skills for s in normalize_skill(skill)} or None
+
+
 if __name__ == "__main__":
     result = find_skill_gaps("data/resume_d3.txt", "data/jobs_d3_eval.db")
     print("Missing:", result.gaps)

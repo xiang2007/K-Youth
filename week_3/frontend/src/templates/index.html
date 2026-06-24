@@ -132,6 +132,7 @@
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
+        signal:  AbortSignal.timeout(180_000),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -141,7 +142,12 @@
         addMessage('assistant', data.reply ?? '(no reply)');
       }
     } catch (err) {
-      addMessage('assistant', `⚠ Could not reach the backend: ${err.message}`);
+      // Handle both network errors (timeout, offline) and parse errors
+      if (err.name === 'AbortError') {
+        addMessage('assistant', '⚠ Request timed out — the AI may be loading. Please try again.');
+      } else {
+        addMessage('assistant', `⚠ Could not reach the backend: ${err.message}`);
+      }
     } finally {
       sendBtn.disabled    = false;
       sendBtn.textContent = 'Send';

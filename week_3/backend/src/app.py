@@ -1,11 +1,10 @@
 import os
-import tempfile
 import uvicorn
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from week_2.find_skill_gaps import find_skill_gaps
+from week_2.find_skill_gaps import find_skill_gaps, find_skill_gaps_from_text
 from week_2.prompt_model import prompt_model
 
 WEEK2_DIR = Path(__file__).parent / "week_2"
@@ -33,13 +32,8 @@ def chat(body: ChatRequest) -> ChatResponse:
         if not JOBS_DB_PATH.is_file():
             raise HTTPException(status_code=500, detail="Jobs database not found")
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", delete=True, encoding="utf-8"
-        ) as tmp:
-            tmp.write(body.pdf_text)
-            tmp.flush()
-            result = find_skill_gaps(tmp.name, str(JOBS_DB_PATH))
-            return ChatResponse(reply=format_skill_gap_result(result))
+        result = find_skill_gaps_from_text(body.pdf_text, str(JOBS_DB_PATH))
+        return ChatResponse(reply=format_skill_gap_result(result))
 
     reply = prompt_model(body.model, body.message)
     if reply is None:

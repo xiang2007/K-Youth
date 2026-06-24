@@ -24,10 +24,16 @@ async def chat(request: Request):
     data = await request.json()
 
     async with httpx.AsyncClient(timeout=120.0) as client:
-        resp = await client.post(
-            f"{BACKEND_URL}/chat",
-            json=data,
-        )
+        try:
+            resp = await client.post(
+                f"{BACKEND_URL}/chat",
+                json=data,
+            )
+        except httpx.ReadTimeout:
+            return JSONResponse(
+                {"error": "The request took too long. The AI model may be loading — try again in a moment."},
+                status_code=504,
+            )
 
     if resp.status_code >= 400:
         # Forward the backend's error detail so the client (and logs) can see it
