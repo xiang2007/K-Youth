@@ -3,9 +3,8 @@ import uvicorn
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-
-from week_2.find_skill_gaps import find_skill_gaps, find_skill_gaps_from_text
-from week_2.prompt_model import prompt_model
+from src.week_2.prompt_model import prompt_model
+from src.week_2.find_skill_gaps import find_skill_gaps_from_text
 
 WEEK2_DIR = Path(__file__).parent / "week_2"
 DEFAULT_JOBS_DB = WEEK2_DIR / "data" / "jobs_d3_eval.db"

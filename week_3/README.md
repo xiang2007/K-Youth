@@ -126,7 +126,7 @@ docker compose down -v
 
 - **Skill-gap analysis:**
   - Input: `{ "message": "Analyze this resume", "pdf_text": "Python, Docker, SQL..." }`
-  - Output: `{ "reply": "Missing skills: kubernetes, tensorflow\nMatching skills: python, docker, sql" }`
+  - Output: `{ "reply": "Missing skills: kubernetes, tensorflow Matching skills: python, docker, sql" }`
 
 ---
 
@@ -155,7 +155,7 @@ docker compose down -v
 ```
 
 **Behavior:**
-- If `pdf_text` is provided: writes the text to a temporary file, runs skill extraction via Ollama, compares against the jobs database, and returns missing/matching skills.
+- If `pdf_text` is provided: extracts skills from the text via Ollama, compares against the jobs database, and returns missing/matching skills.
 - If `pdf_text` is absent: forwards the message to the configured AI model (Ollama or Gemini) and returns the response.
 
 ### Frontend — `GET /` and `POST /chat`
@@ -194,7 +194,7 @@ Browser → Frontend (port 8080) → Backend (port 8000) → Ollama (port 11434)
 2. User types a message and clicks Send → `POST /chat` with `{ message, pdf_text }`
 3. Frontend proxies the request to the backend service via `http://backend:8000/chat`
 4. Backend either:
-   - Runs skill-gap analysis (if `pdf_text` present) → writes temp file → calls `find_skill_gaps()` → returns formatted result
+   - Runs skill-gap analysis (if `pdf_text` present) → calls `find_skill_gaps_from_text()` → returns formatted result
    - Calls the AI model (if no `pdf_text`) → returns model response
 5. Frontend receives the JSON response and displays it as a chat bubble
 
@@ -223,44 +223,102 @@ Browser → Frontend (port 8080) → Backend (port 8000) → Ollama (port 11434)
 
 ## Testing
 
-### Manual testing with Docker
+### Test Cases
 
-1. **Start the app:**
+#### Frontend Tests
+
+| # | Scenario | Steps | Expected Result |
+|---|----------|-------|-----------------|
+| F1 | Send a chat message (no PDF) | 1. Open http://localhost:8080<br>2. Type a message<br>3. Click Send | Message bubble appears; AI reply appears after a short delay |
+| F2 | Attach a PDF and send a message | 1. Open http://localhost:8080<br>2. Click "Attach PDF", select a resume<br>3. Click Send | Skill-gap report appears in the format `Missing skills: ...\nMatching skills: ...` |
+| F3 | Send a message after clearing PDF | 1. Attach a PDF, send a message<br>2. Send another message without attaching a new PDF | AI chat response (not a skill-gap report) — the PDF text is cleared after each message |
+| F4 | Frontend proxy error handling | 1. Stop the backend container (`docker compose stop backend`)<br>2. Send a message from the frontend | An error toast appears saying the backend is unavailable |
+
+#### Backend Tests (Postman / curl)
+
+The backend runs at **http://localhost:8000**. You can test it with **Postman** or **curl**.
+
+##### Postman Setup
+
+1. Create a new **POST** request to `http://localhost:8000/chat`
+2. **Headers** tab → add `Content-Type: application/json`
+3. **Body** tab → select **raw** + **JSON** → paste one of the payloads below
+4. Click **Send**
+
+##### Test Cases
+
+| # | Scenario | Request Body | Expected Response |
+|---|----------|-------------|-------------------|
+| B1 | Chat with default model (llama3.2) | `{"message": "What is Docker?"}` | `{"reply": "..."}` with an AI-generated answer |
+| B2 | Chat with a specific model | `{"message": "Explain REST", "model": "llama3.2:latest"}` | `{"reply": "..."}` |
+| B3 | Skill-gap analysis with PDF text | `{"message": "Analyze", "pdf_text": "Python, Docker, SQL"}` | `{"reply": "Missing skills: ...\nMatching skills: python, docker, sql"}` |
+| B4 | Missing jobs database | `{"message": "test", "pdf_text": "Python"}` (when DB is absent) | `{"detail": "Jobs database not found"}` (HTTP 500) |
+| B5 | Ollama unavailable | `{"message": "Hello"}` (when Ollama is stopped) | `{"detail": "Model unavailable"}` (HTTP 503) |
+
+##### Equivalent curl Commands
+
+```bash
+# B1 — Chat (no PDF)
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello, explain quantum computing"}'
+
+# B3 — Skill-gap analysis
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Analyze", "pdf_text": "Python, Docker, SQL, Machine Learning"}'
+
+# B5 — Test with a different model
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello", "model": "mistral"}'
+```
+
+#### Docker Network Verification
+
+The frontend and backend communicate over Docker's default bridge network using service names as hostnames. Here's how to verify the connections:
+
+```bash
+# 1. Verify all three containers are running
+docker compose ps
+
+# 2. From the frontend container, ping the backend
+docker compose exec frontend curl -s -o /dev/null -w "%{http_code}" http://backend:8000/chat \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"message": "health check"}'
+
+# 3. From the backend container, ping Ollama
+docker compose exec backend curl -s http://ollama:11434/api/tags
+
+# 4. From the host, verify the frontend proxy works end-to-end
+curl -X POST http://localhost:8080/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello via frontend proxy"}'
+```
+
+**Expected results:**
+
+| Connection | Command | Expected |
+|---|---|---|
+| Frontend → Backend | `curl` from frontend container to `http://backend:8000` | HTTP 200 with `{"reply": "..."}` |
+| Backend → Ollama | `curl` from backend container to `http://ollama:11434/api/tags` | JSON list of loaded models |
+| Browser → Frontend proxy | `curl` from host to `http://localhost:8080/chat` | Response proxied from backend |
+
+To reproduce the full test flow:
+
+1. **Start the application:**
    ```bash
+   cd week_3
    docker compose up --build
    ```
 
-2. **Test the frontend:**
-   Open http://localhost:8080 and send a message.
+2. **Wait for all services to be healthy** (check with `docker compose ps`)
 
-3. **Test the backend directly:**
-   ```bash
-   # Chat (no PDF)
-   curl -X POST http://localhost:8000/chat \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Hello, explain quantum computing"}'
+3. **Run the backend tests** (section B1–B5 above) to verify the API layer
 
-   # Skill-gap analysis (with PDF text)
-   curl -X POST http://localhost:8000/chat \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Analyze", "pdf_text": "Python, Docker, SQL, Machine Learning"}'
-   ```
+4. **Run the frontend tests** (section F1–F4) to verify the UI and proxy layer
 
-4. **Test the frontend proxy:**
-   ```bash
-   curl -X POST http://localhost:8080/chat \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Hello via frontend proxy"}'
-   ```
-
-### Expected results
-
-| Test | Expected response |
-|---|---|
-| Chat message (no PDF) | `{ "reply": "..." }` with an AI-generated answer |
-| Skill-gap analysis | `{ "reply": "Missing skills: ...\nMatching skills: ..." }` |
-| Missing jobs database | `{ "detail": "Jobs database not found" }` (HTTP 500) |
-| Ollama unavailable | `{ "detail": "Model unavailable" }` (HTTP 503) |
+5. **Run the Docker network verification** to confirm inter-container connectivity
 
 ---
 
@@ -273,7 +331,7 @@ Browser → Frontend (port 8080) → Backend (port 8000) → Ollama (port 11434)
 - **Ollama model performance** — `llama3.2:latest` is a small model. Responses may be short or inaccurate for complex queries.
 - **No Gemini configuration in docker-compose** — the Gemini fallback requires a `GOOGLE_API_KEY` set outside the compose file (for security).
 - **Single-user deployment** — the system is designed for local use; no load balancing or horizontal scaling is configured.
-- **Temp file cleanup** — PDF text is written to a temporary file on the backend; if an exception occurs during processing, the file may not be cleaned up promptly.
+- **No temp files** — PDF text is passed as a string directly to `find_skill_gaps_from_text()`, avoiding file I/O entirely.
 
 ---
 
