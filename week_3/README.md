@@ -65,6 +65,23 @@ uv sync --locked
 uv run uvicorn src.app:app --host 0.0.0.0 --port 8080
 ```
 
+### 4. Pull the AI model
+
+Before starting the application, pull the model(s) you want to use into the Ollama container:
+
+```bash
+# Pull the default model (llama3.2)
+docker compose exec ollama ollama pull llama3.2
+
+# Or pull a specific version
+docker compose exec ollama ollama pull llama3.2:latest
+
+# Or pull a different model (e.g., mistral, gemma, codellama)
+docker compose exec ollama ollama pull mistral
+```
+
+> **Tip:** Check available models at <https://ollama.com/library>. Smaller models (e.g., `llama3.2`, `gemma:2b`) download faster and run on CPU. Larger models (e.g., `llama3.1:70b`) require more RAM and will be slower.
+
 ---
 
 ## Usage
