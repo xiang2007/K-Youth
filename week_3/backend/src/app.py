@@ -16,6 +16,7 @@ class ChatRequest(BaseModel):
     message: str
     pdf_text: str | None = None
     model: str = "llama3.2:latest"
+    mode: str = "chat"          # "chat" = normal chat (PDF text goes to LLM), "analyze" = skill-gap analysis
 
 class ChatResponse(BaseModel):
     reply: str
@@ -27,12 +28,23 @@ def format_skill_gap_result(result) -> str:
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(body: ChatRequest) -> ChatResponse:
-    if body.pdf_text:
+    if body.pdf_text and body.mode == "analyze":
         if not JOBS_DB_PATH.is_file():
             raise HTTPException(status_code=500, detail="Jobs database not found")
 
         result = find_skill_gaps_from_text(body.pdf_text, str(JOBS_DB_PATH))
         return ChatResponse(reply=format_skill_gap_result(result))
+
+    # Normal chat — prepend PDF context so the LLM can answer questions about it
+    if body.pdf_text:
+        body.message = (
+            "Below is the text of a PDF the user uploaded. "
+            "Answer their question using this text.\n\n"
+            "--- PDF text ---\n"
+            f"{body.pdf_text}\n"
+            "--- End of PDF text ---\n\n"
+            f"User: {body.message}"
+        )
 
     reply = prompt_model(body.model, body.message)
     if reply is None:

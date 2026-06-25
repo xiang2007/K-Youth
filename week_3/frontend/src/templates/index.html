@@ -80,6 +80,9 @@
     const file = pdfInput.files[0];
     if (!file) return;
 
+    // Replace previous PDF (if any) with the newly uploaded one
+    pdfText = '';
+
     pdfStatus.textContent = `Reading "${file.name}"…`;
     try {
       const buffer = await file.arrayBuffer();
@@ -123,8 +126,15 @@
     sendBtn.disabled    = true;
     sendBtn.textContent = '…';
 
-    const body = { message };
-    if (pdfText) body.pdf_text = pdfText;
+    const body = { message, mode: 'chat' };
+    if (pdfText) {
+      // Auto-detect skill-gap analysis intent from the message
+      const analyzeKeywords = /\b(analyz|gap|skill|compare|match|against|resume)\b/i;
+      body.mode = analyzeKeywords.test(message) ? 'analyze' : 'chat';
+      // Always send pdf_text so the LLM can answer questions about it.
+      // In analyze mode the backend runs find_skill_gaps; in chat mode it forwards the text to the LLM.
+      body.pdf_text = pdfText;
+    }
 
     try {
       // Relative URL — no hardcoded address needed since FastAPI serves this page
@@ -151,11 +161,7 @@
     } finally {
       sendBtn.disabled    = false;
       sendBtn.textContent = 'Send';
-
-      // Always clear PDF state after sending, even on error
-      pdfText             = '';
-      pdfInput.value      = '';
-      pdfStatus.textContent = 'No file chosen';
+      inputEl.value       = '';
     }
   }
 
